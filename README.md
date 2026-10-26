@@ -1,5 +1,7 @@
 # 3D Product Configurator
 
+> **This is a learning project.** I'm using it to get hands-on with React Three Fiber, so expect rough edges and experiments rather than production-ready code.
+
 A browser-based product configurator built with React Three Fiber. Orbit, click, recolor, and take apart two glTF models in real time.
 
 ## What it demonstrates
