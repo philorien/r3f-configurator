@@ -35,6 +35,18 @@ describe('<Panel />', () => {
     expect(useConfigurator.getState().overrides['shoe:shoe']?.color).toBe('#1d3557')
   })
 
+  it('tells you when a part is hidden and lets you bring everything back', async () => {
+    const u = user()
+    render(<Panel />)
+    await u.click(screen.getByRole('radio', { name: 'Velvet chair' }))
+    expect(screen.queryByText(/hidden\./)).not.toBeInTheDocument()
+    await u.click(screen.getByRole('checkbox', { name: 'Fabric visible' }))
+    expect(screen.getByText('1 part is hidden.')).toBeInTheDocument()
+    await u.click(screen.getByRole('button', { name: 'Show all parts' }))
+    expect(screen.getByRole('checkbox', { name: 'Fabric visible' })).toBeChecked()
+    expect(screen.queryByText(/hidden\./)).not.toBeInTheDocument()
+  })
+
   it('hides the explode control for a single-mesh model', async () => {
     const u = user()
     render(<Panel />)

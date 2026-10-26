@@ -62,6 +62,17 @@ test.describe('viewer', () => {
     await expect(page.getByRole('button', { name: /show details/i })).toHaveCount(0)
   })
 
+  test('a hidden part is called out, takes its hotspot with it, and can be restored', async ({ page }) => {
+    await page.goto('./?m=chair&o.fabric=h:1')
+    await expect(page.getByText('1 part is hidden.')).toBeVisible()
+    await expect(page.getByRole('button', { name: /legs/i })).toBeVisible({ timeout: 20_000 })
+    await expect(page.getByRole('button', { name: /seat/i })).toHaveCount(0)
+    await page.getByRole('button', { name: 'Show all parts' }).click()
+    await expect(page.getByText(/hidden\./)).toHaveCount(0)
+    await expect(page.getByRole('button', { name: /seat/i })).toBeVisible()
+    await expect(page).not.toHaveURL(/h:1/)
+  })
+
   test('runs without console errors while switching models', async ({ page }) => {
     const problems: string[] = []
     page.on('pageerror', (e) => problems.push(e.message))

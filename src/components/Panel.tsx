@@ -27,6 +27,7 @@ export function Panel() {
   const override = s.overrides[key] ?? {}
   const base = s.partBase[key]
   const canExplode = model.parts.length > 1
+  const hiddenCount = model.parts.filter((p) => s.overrides[partKey(model.id, p.id)]?.hidden).length
   const link = currentLink()
   const fileInput = useRef<HTMLInputElement>(null)
   const linkInput = useRef<HTMLInputElement>(null)
@@ -149,6 +150,16 @@ export function Panel() {
             />
             {part.label} visible
           </label>
+          {hiddenCount > 0 && (
+            <div className="notice">
+              <span>
+                {hiddenCount} {hiddenCount === 1 ? 'part is' : 'parts are'} hidden.
+              </span>
+              <button type="button" className="secondary" onClick={s.showAllParts}>
+                Show all parts
+              </button>
+            </div>
+          )}
         </fieldset>
       )}
 

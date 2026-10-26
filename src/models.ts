@@ -11,6 +11,8 @@ export type Hotspot = {
   id: string
   label: string
   text: string
+  /** The part this annotation points at; it is hidden along with that part. */
+  part: string
   /** Position as a 0..1 fraction of the model's bounding box (x, y, z). */
   at: [number, number, number]
 }
@@ -43,8 +45,8 @@ export const MODELS: ModelDef[] = [
     variants: ['Midnight', 'Beach', 'Street'],
     parts: [{ id: 'shoe', label: 'Whole shoe', match: () => true }],
     hotspots: [
-      { id: 'toe', label: 'Toe box', text: 'Reinforced toe cap.', at: [0.9, 0.35, 0.5] },
-      { id: 'sole', label: 'Sole', text: 'Textured outsole for grip.', at: [0.5, 0.05, 0.5] },
+      { id: 'toe', label: 'Toe box', text: 'Reinforced toe cap.', part: 'shoe', at: [0.9, 0.35, 0.5] },
+      { id: 'sole', label: 'Sole', text: 'Textured outsole for grip.', part: 'shoe', at: [0.5, 0.05, 0.5] },
     ],
   },
   {
@@ -61,8 +63,8 @@ export const MODELS: ModelDef[] = [
       { id: 'label', label: 'Label', match: byName(/label/i) },
     ],
     hotspots: [
-      { id: 'seat', label: 'Seat', text: 'Velvet with a sheen layer.', at: [0.5, 0.45, 0.5] },
-      { id: 'legs', label: 'Legs', text: 'Solid wood legs.', at: [0.72, 0.2, 0.72] },
+      { id: 'seat', label: 'Seat', text: 'Velvet with a sheen layer.', part: 'fabric', at: [0.5, 0.45, 0.5] },
+      { id: 'legs', label: 'Legs', text: 'Solid wood legs.', part: 'wood', at: [0.72, 0.2, 0.72] },
     ],
   },
 ]

@@ -308,6 +308,18 @@ button {
 }
 
 /* Uploads, sharing, errors */
+.notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid #b7791f;
+  border-radius: 8px;
+  background: rgba(183, 121, 31, 0.14);
+  font-size: 0.8rem;
+}
+
 .drop-overlay {
   position: absolute;
   inset: 12px;

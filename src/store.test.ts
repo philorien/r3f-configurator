@@ -42,6 +42,18 @@ describe('configurator store', () => {
     expect(overrides['shoe:shoe']).toEqual({ color: '#00ff00' })
   })
 
+  it('show all parts un-hides every part of the current model only', () => {
+    const s = useConfigurator.getState()
+    s.setModel('chair')
+    s.patchPart('fabric', { hidden: true })
+    s.patchPart('wood', { hidden: true, color: '#ff0000' })
+    s.showAllParts()
+    const { overrides } = useConfigurator.getState()
+    expect(overrides['chair:fabric']?.hidden).toBeUndefined()
+    expect(overrides['chair:wood']).toMatchObject({ color: '#ff0000' })
+    expect(overrides['chair:wood']?.hidden).toBeUndefined()
+  })
+
   it('announces changes for screen readers', () => {
     const s = useConfigurator.getState()
     s.setModel('chair')

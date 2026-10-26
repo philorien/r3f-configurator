@@ -36,6 +36,7 @@ type State = {
   patchPart: (partId: string, patch: PartOverride) => void
   clearFinish: (partId: string) => void
   setPartBase: (key: string, finish: Finish) => void
+  showAllParts: () => void
   resetModel: () => void
   resetView: () => void
   set: (patch: Partial<Pick<State, 'explode' | 'env' | 'autoRotate' | 'wireframe' | 'hotspots' | 'pauseRotate'>>) => void
@@ -135,6 +136,17 @@ export const useConfigurator = create<State>()((set, get) => ({
     }),
 
   setPartBase: (key, finish) => set((s) => ({ partBase: { ...s.partBase, [key]: finish } })),
+
+  showAllParts: () =>
+    set((s) => {
+      const model = selectModel(s)
+      const overrides = { ...s.overrides }
+      for (const part of model.parts) {
+        const key = partKey(model.id, part.id)
+        if (overrides[key]?.hidden) overrides[key] = { ...overrides[key], hidden: undefined }
+      }
+      return { overrides, announcement: 'All parts shown' }
+    }),
 
   resetModel: () =>
     set((s) => ({

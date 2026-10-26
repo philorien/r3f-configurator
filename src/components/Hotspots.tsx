@@ -1,18 +1,22 @@
 import { useState } from 'react'
 import { hotspotEls } from '../hotspotLayer'
+import { partKey } from '../models'
 import { selectModel, useConfigurator } from '../store'
 
 /** Annotation buttons over the viewer. Positions are written by the viewer's per-frame tracker. */
 export function Hotspots() {
   const model = useConfigurator(selectModel)
   const show = useConfigurator((s) => s.hotspots)
+  const overrides = useConfigurator((s) => s.overrides)
   // Anchors describe the assembled model, so they'd float in mid-air once parts move apart.
   const assembled = useConfigurator((s) => s.explode < 0.02)
   if (!show || !assembled || model.hotspots.length === 0) return null
 
   return (
     <div className="hotspot-layer">
-      {model.hotspots.map((h) => (
+      {model.hotspots
+        .filter((h) => !overrides[partKey(model.id, h.part)]?.hidden)
+        .map((h) => (
         <Hotspot
           key={`${model.id}-${h.id}`}
           id={h.id}
