@@ -4,6 +4,10 @@
 
 A browser-based product configurator built with React Three Fiber. Orbit, click, recolor, and take apart two glTF models in real time.
 
+[Live demo](https://philorien.github.io/r3f-configurator/)
+
+![Switching sneaker variants, then recoloring and exploding the velvet chair](docs/demo.gif)
+
 ## What it does
 
 - **Configure**: switch between baked material variants, click or pick a part, then change its color, roughness and metalness, hide it, or explode the model apart.
