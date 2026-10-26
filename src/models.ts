@@ -1,8 +1,10 @@
+import type { Mesh } from 'three'
+
 export type Part = {
   id: string
   label: string
-  /** Matched against the mesh name from the glTF node. */
-  match: RegExp
+  /** Decides whether a mesh belongs to this part. */
+  match: (mesh: Mesh) => boolean
 }
 
 export type Hotspot = {
@@ -23,9 +25,13 @@ export type ModelDef = {
   variants: string[]
   parts: Part[]
   hotspots: Hotspot[]
+  /** True for a file the user uploaded: parts and variants are discovered after it loads. */
+  custom?: boolean
 }
 
 const base = import.meta.env.BASE_URL
+
+const byName = (re: RegExp) => (mesh: Mesh) => re.test(mesh.name)
 
 export const MODELS: ModelDef[] = [
   {
@@ -35,7 +41,7 @@ export const MODELS: ModelDef[] = [
     blurb: 'One mesh, three baked material sets switched through KHR_materials_variants.',
     credit: 'MaterialsVariantsShoe, Khronos glTF Sample Assets (CC-BY 4.0, Eric Chadwick / Wayfair)',
     variants: ['Midnight', 'Beach', 'Street'],
-    parts: [{ id: 'shoe', label: 'Whole shoe', match: /./ }],
+    parts: [{ id: 'shoe', label: 'Whole shoe', match: () => true }],
     hotspots: [
       { id: 'toe', label: 'Toe box', text: 'Reinforced toe cap.', at: [0.9, 0.35, 0.5] },
       { id: 'sole', label: 'Sole', text: 'Textured outsole for grip.', at: [0.5, 0.05, 0.5] },
@@ -49,10 +55,10 @@ export const MODELS: ModelDef[] = [
     credit: 'SheenChair, Khronos glTF Sample Assets (CC-BY 4.0, Wayfair)',
     variants: ['Mango Velvet', 'Peacock Velvet'],
     parts: [
-      { id: 'fabric', label: 'Fabric', match: /fabric/i },
-      { id: 'wood', label: 'Wood', match: /wood/i },
-      { id: 'metal', label: 'Metal', match: /metal/i },
-      { id: 'label', label: 'Label', match: /label/i },
+      { id: 'fabric', label: 'Fabric', match: byName(/fabric/i) },
+      { id: 'wood', label: 'Wood', match: byName(/wood/i) },
+      { id: 'metal', label: 'Metal', match: byName(/metal/i) },
+      { id: 'label', label: 'Label', match: byName(/label/i) },
     ],
     hotspots: [
       { id: 'seat', label: 'Seat', text: 'Velvet with a sheen layer.', at: [0.5, 0.45, 0.5] },
@@ -61,6 +67,8 @@ export const MODELS: ModelDef[] = [
   },
 ]
 
-export const getModel = (id: string): ModelDef => MODELS.find((m) => m.id === id) ?? MODELS[0]
+export const CUSTOM_ID = 'custom'
+
+export const getBundledModel = (id: string): ModelDef | undefined => MODELS.find((m) => m.id === id)
 
 export const partKey = (modelId: string, partId: string) => `${modelId}:${partId}`

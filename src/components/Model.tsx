@@ -1,12 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useFrame, type ThreeEvent } from '@react-three/fiber'
-import { Html, useGLTF } from '@react-three/drei'
+import { useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
 import type { GLTF } from 'three-stdlib'
-import { getModel, MODELS, partKey, type ModelDef } from '../models'
-import { useConfigurator } from '../store'
+import { hotspotAnchors } from '../hotspotLayer'
+import { MODELS, partKey, type ModelDef, type Part } from '../models'
+import { derivePartGroups } from '../parts'
+import { reducedMotion, selectModel, useConfigurator } from '../store'
 
 MODELS.forEach((m) => useGLTF.preload(m.url))
+
+// Drop the cached GLTF of an uploaded model once it has been replaced or removed.
+useConfigurator.subscribe((state, prev) => {
+  if (prev.custom && prev.custom.url !== state.custom?.url) useGLTF.clear(prev.custom.url)
+})
 
 const TARGET_SIZE = 1.6
 
@@ -37,8 +44,11 @@ function tagPrimitives(gltf: GLTF) {
 
 const asStandard = (m: THREE.Material) => m.clone() as THREE.MeshStandardMaterial
 
-async function buildSlots(gltf: GLTF, root: THREE.Object3D, def: ModelDef): Promise<Slot[]> {
+type Built = { slots: Slot[]; parts: Part[]; variants: string[] }
+
+async function buildSlots(gltf: GLTF, root: THREE.Object3D, def: ModelDef): Promise<Built> {
   const json = gltf.parser.json as {
+    extensions?: { KHR_materials_variants?: { variants: { name?: string }[] } }
     meshes: { primitives: { extensions?: { KHR_materials_variants?: { mappings: VariantMapping[] } } }[] }[]
   }
   root.updateMatrixWorld(true)
@@ -51,11 +61,25 @@ async function buildSlots(gltf: GLTF, root: THREE.Object3D, def: ModelDef): Prom
     if ((o as THREE.Mesh).isMesh) meshes.push(o as THREE.Mesh)
   })
 
-  return Promise.all(
+  const materialOf = (mesh: THREE.Mesh) => (Array.isArray(mesh.material) ? mesh.material[0] : mesh.material)
+
+  // Bundled models declare their parts and variants. Uploaded ones are discovered from the file.
+  const variants = def.custom
+    ? (json.extensions?.KHR_materials_variants?.variants ?? []).map((v, i) => v.name || `Variant ${i + 1}`)
+    : def.variants
+  let parts = def.parts
+  let partIdFor = (mesh: THREE.Mesh) => (def.parts.find((p) => p.match(mesh)) ?? def.parts[0]).id
+  if (def.custom) {
+    const infos = meshes.map((m) => ({ mesh: m.name, material: materialOf(m).name }))
+    const groups = derivePartGroups(infos)
+    parts = groups.parts.map((p) => ({ ...p, match: () => false }))
+    partIdFor = (mesh) => groups.idFor(infos[meshes.indexOf(mesh)])
+  }
+
+  const slots = await Promise.all(
     meshes.map(async (mesh) => {
-      const part = def.parts.find((p) => p.match.test(mesh.name)) ?? def.parts[0]
-      const fallback = asStandard(mesh.material as THREE.Material)
-      const materials = Array.from({ length: def.variants.length }, () => fallback.clone())
+      const fallback = asStandard(materialOf(mesh))
+      const materials = Array.from({ length: Math.max(1, variants.length) }, () => fallback.clone())
 
       const prim = mesh.userData.prim as { mesh: number; primitive: number } | undefined
       const mappings = prim
@@ -63,7 +87,7 @@ async function buildSlots(gltf: GLTF, root: THREE.Object3D, def: ModelDef): Prom
         : []
       for (const mapping of mappings) {
         const source = (await gltf.parser.getDependency('material', mapping.material)) as THREE.Material
-        for (const v of mapping.variants) materials[v] = asStandard(source)
+        for (const v of mapping.variants) if (v < materials.length) materials[v] = asStandard(source)
       }
 
       // Direction to push this part away from the model's center when exploding.
@@ -72,13 +96,14 @@ async function buildSlots(gltf: GLTF, root: THREE.Object3D, def: ModelDef): Prom
       if (dir.length() < span * 0.04) dir.set(0, span * 0.18, 0)
       else dir.y *= 1.5
 
-      return { mesh, partId: part.id, materials, explodeDir: dir, basePosition: mesh.position.clone() }
+      return { mesh, partId: partIdFor(mesh), materials, explodeDir: dir, basePosition: mesh.position.clone() }
     }),
   )
+  return { slots, parts, variants }
 }
 
-export function Model({ modelId }: { modelId: string }) {
-  const def = getModel(modelId)
+export function Model() {
+  const def = useConfigurator(selectModel)
   const gltf = useGLTF(def.url)
 
   const { root, scale, offset } = useMemo(() => {
@@ -96,32 +121,39 @@ export function Model({ modelId }: { modelId: string }) {
     }
   }, [gltf])
 
+  // Read the latest def inside the effect below without re-running it when only parts/variants change.
+  const defRef = useRef(def)
+  useEffect(() => {
+    defRef.current = def
+  })
+
   const [slots, setSlots] = useState<Slot[]>([])
   useEffect(() => {
     let cancelled = false
-    buildSlots(gltf, root, def).then((built) => {
+    const current = defRef.current
+    buildSlots(gltf, root, current).then(({ slots: built, parts, variants }) => {
       if (cancelled) return
       setSlots(built)
-      const { setPartBase } = useConfigurator.getState()
+      const { setPartBase, setCustomMeta } = useConfigurator.getState()
+      if (current.custom) setCustomMeta(parts, variants)
       for (const slot of built) {
         const m = slot.materials[0]
         slot.materials.forEach((mat) => {
           mat.userData.base = { color: mat.color.clone(), roughness: mat.roughness, metalness: mat.metalness }
         })
-        setPartBase(partKey(def.id, slot.partId), { roughness: m.roughness, metalness: m.metalness })
+        setPartBase(partKey(current.id, slot.partId), { roughness: m.roughness, metalness: m.metalness })
       }
     })
     return () => {
       cancelled = true
     }
-  }, [gltf, root, def])
+  }, [gltf, root, def.id, def.url])
 
   const variant = useConfigurator((s) => s.variant)
   const overrides = useConfigurator((s) => s.overrides)
   const wireframe = useConfigurator((s) => s.wireframe)
   const explode = useConfigurator((s) => s.explode)
   const activePart = useConfigurator((s) => s.activePart)
-  const showHotspots = useConfigurator((s) => s.hotspots)
 
   // Apply variant + per-part overrides. Runs over every variant's material so switching is instant.
   useEffect(() => {
@@ -143,7 +175,7 @@ export function Model({ modelId }: { modelId: string }) {
   // Explode view: ease each mesh along its precomputed direction.
   const eased = useRef(0)
   useFrame((_, delta) => {
-    eased.current = THREE.MathUtils.damp(eased.current, explode, 8, delta)
+    eased.current = reducedMotion() ? explode : THREE.MathUtils.damp(eased.current, explode, 8, delta)
     for (const slot of slots) {
       slot.mesh.position.copy(slot.basePosition).addScaledVector(slot.explodeDir, eased.current)
     }
@@ -152,8 +184,8 @@ export function Model({ modelId }: { modelId: string }) {
   // Brief emissive pulse so the user can see which part they just selected.
   const pulse = useRef(0)
   useEffect(() => {
-    pulse.current = 1
-  }, [activePart, modelId])
+    pulse.current = reducedMotion() ? 0 : 1
+  }, [activePart, def.id])
   useFrame((_, delta) => {
     if (!slots.length) return
     pulse.current = Math.max(0, pulse.current - delta * 1.8)
@@ -176,7 +208,21 @@ export function Model({ modelId }: { modelId: string }) {
     useConfigurator.getState().setActivePart(part)
   }
 
-  const bounds = useMemo(() => new THREE.Box3().setFromObject(root), [root])
+  // Publish where each hotspot sits in world space for the viewer's screen-space tracker.
+  useEffect(() => {
+    const box = new THREE.Box3().setFromObject(root)
+    const size = box.getSize(new THREE.Vector3())
+    for (const h of def.hotspots) {
+      const local = new THREE.Vector3(
+        box.min.x + size.x * h.at[0],
+        box.min.y + size.y * h.at[1],
+        box.min.z + size.z * h.at[2],
+      )
+      const world = local.multiplyScalar(scale).add(offset)
+      hotspotAnchors.set(h.id, [world.x, world.y, world.z])
+    }
+    return () => hotspotAnchors.clear()
+  }, [root, scale, offset, def.hotspots])
 
   return (
     <group position={offset} scale={scale}>
@@ -190,44 +236,6 @@ export function Model({ modelId }: { modelId: string }) {
           document.body.style.cursor = ''
         }}
       />
-      {showHotspots &&
-        def.hotspots.map((h) => {
-          const size = bounds.getSize(new THREE.Vector3())
-          const pos = new THREE.Vector3(
-            bounds.min.x + size.x * h.at[0],
-            bounds.min.y + size.y * h.at[1],
-            bounds.min.z + size.z * h.at[2],
-          )
-          return (
-            <Html key={h.id} position={pos} zIndexRange={[10, 0]} center>
-              <HotspotButton label={h.label} text={h.text} />
-            </Html>
-          )
-        })}
     </group>
-  )
-}
-
-function HotspotButton({ label, text }: { label: string; text: string }) {
-  const [open, setOpen] = useState(false)
-  return (
-    <div className="hotspot">
-      <button
-        type="button"
-        className="hotspot-dot"
-        aria-expanded={open}
-        aria-label={`${label}: ${open ? 'hide' : 'show'} details`}
-        onClick={() => setOpen((v) => !v)}
-        onBlur={() => setOpen(false)}
-      >
-        +
-      </button>
-      {open && (
-        <div className="hotspot-card" role="status">
-          <strong>{label}</strong>
-          <span>{text}</span>
-        </div>
-      )}
-    </div>
   )
 }
