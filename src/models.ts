@@ -29,6 +29,8 @@ export type ModelDef = {
   hotspots: Hotspot[]
   /** True for a file the user uploaded: parts and variants are discovered after it loads. */
   custom?: boolean
+  /** Built from code instead of loaded from a file, so `url` is empty. */
+  procedural?: 'bolt'
 }
 
 const base = import.meta.env.BASE_URL
@@ -66,6 +68,22 @@ export const MODELS: ModelDef[] = [
       { id: 'seat', label: 'Seat', text: 'Velvet with a sheen layer.', part: 'fabric', at: [0.5, 0.45, 0.5] },
       { id: 'legs', label: 'Legs', text: 'Solid wood legs.', part: 'wood', at: [0.72, 0.2, 0.72] },
     ],
+  },
+  {
+    id: 'bolt',
+    name: 'Bolt',
+    url: '',
+    procedural: 'bolt',
+    blurb: 'A metric hex cap screw built from code. Set the size, length and thread pitch.',
+    credit: '',
+    variants: [],
+    // Meshes are tagged with these ids by the Bolt component, so match is unused.
+    parts: [
+      { id: 'head', label: 'Head', match: () => false },
+      { id: 'shank', label: 'Shank', match: () => false },
+      { id: 'thread', label: 'Thread', match: () => false },
+    ],
+    hotspots: [],
   },
 ]
 

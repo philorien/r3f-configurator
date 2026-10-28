@@ -8,7 +8,7 @@ import { MODELS, partKey, type ModelDef, type Part } from '../models'
 import { derivePartGroups } from '../parts'
 import { reducedMotion, selectModel, useConfigurator } from '../store'
 
-MODELS.forEach((m) => useGLTF.preload(m.url))
+MODELS.filter((m) => !m.procedural).forEach((m) => useGLTF.preload(m.url))
 
 // Drop the cached GLTF of an uploaded model once it has been replaced or removed.
 useConfigurator.subscribe((state, prev) => {

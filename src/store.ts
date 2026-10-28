@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { clampBolt, DEFAULT_BOLT, type BoltParams } from './bolt'
 import { ENV_PRESETS, type EnvPreset } from './env'
 import { CUSTOM_ID, getBundledModel, MODELS, partKey, type ModelDef, type Part } from './models'
 import { parse, type PartOverride } from './share'
@@ -17,7 +18,11 @@ type State = {
   partBase: Record<string, Finish>
   explode: number
   env: EnvPreset
+  /** Dimensions of the procedural bolt model. */
+  bolt: BoltParams
   autoRotate: boolean
+  /** Cut the bolt along its axis to show the inside. */
+  section: boolean
   wireframe: boolean
   hotspots: boolean
   /** True while a hotspot is hovered or focused, so auto-rotate doesn't carry it out from under the pointer. */
@@ -38,8 +43,9 @@ type State = {
   setPartBase: (key: string, finish: Finish) => void
   showAllParts: () => void
   resetModel: () => void
+  setBolt: (patch: Partial<BoltParams>) => void
   resetView: () => void
-  set: (patch: Partial<Pick<State, 'explode' | 'env' | 'autoRotate' | 'wireframe' | 'hotspots' | 'pauseRotate'>>) => void
+  set: (patch: Partial<Pick<State, 'explode' | 'env' | 'autoRotate' | 'section' | 'wireframe' | 'hotspots' | 'pauseRotate'>>) => void
   setCustom: (def: ModelDef) => void
   setCustomMeta: (parts: Part[], variants: string[]) => void
   clearCustom: (reason?: string) => void
@@ -72,13 +78,15 @@ function initial() {
     overrides: fromUrl.overrides ?? {},
     explode: fromUrl.explode ?? 0,
     env: fromUrl.env ?? ('studio' as EnvPreset),
+    bolt: fromUrl.bolt ?? DEFAULT_BOLT,
   }
 }
 
 export const useConfigurator = create<State>()((set, get) => ({
   ...initial(),
   partBase: {},
-  autoRotate: !reducedMotion(),
+  autoRotate: false,
+  section: false,
   wireframe: false,
   hotspots: true,
   pauseRotate: false,
@@ -154,8 +162,11 @@ export const useConfigurator = create<State>()((set, get) => ({
       variant: 0,
       explode: 0,
       wireframe: false,
+      bolt: s.modelId === 'bolt' ? DEFAULT_BOLT : s.bolt,
       announcement: 'Model reset',
     })),
+
+  setBolt: (patch) => set((s) => ({ bolt: clampBolt(patch, s.bolt) })),
 
   resetView: () => set((s) => ({ resetViewNonce: s.resetViewNonce + 1, announcement: 'View reset' })),
 

@@ -12,6 +12,7 @@ import * as THREE from 'three'
 import { capture } from '../capture'
 import { hotspotAnchors, hotspotEls } from '../hotspotLayer'
 import { reducedMotion, selectModel, useConfigurator } from '../store'
+import { Bolt } from './Bolt'
 import { Model } from './Model'
 
 const HOME_POSITION = new THREE.Vector3(3.4, 1.9, 4.6)
@@ -187,14 +188,14 @@ export default function Viewer() {
         className="viewer-canvas"
         camera={{ position: HOME_POSITION.toArray(), fov: 32 }}
         dpr={dpr}
-        gl={{ antialias: true, alpha: true, toneMapping: THREE.ACESFilmicToneMapping }}
+        gl={{ antialias: true, alpha: true, stencil: true, toneMapping: THREE.ACESFilmicToneMapping }}
       >
         <PerformanceMonitor onDecline={() => setDpr(1)} onIncline={() => setDpr(2)} />
         <Rig />
         <CaptureBridge />
         <HotspotTracker />
         <Suspense fallback={null}>
-          <Model key={def.url} />
+          {def.procedural ? <Bolt key={def.id} /> : <Model key={def.url} />}
           {env === 'studio' ? <StudioEnvironment key="studio" /> : <Environment key={env} preset={env} />}
         </Suspense>
         <ContactShadows position={[0, 0, 0]} opacity={0.45} scale={8} blur={2.6} far={2} resolution={512} />

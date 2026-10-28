@@ -85,3 +85,21 @@ describe('parse', () => {
     expect(parse('m=chair&v=-1').variant).toBeUndefined()
   })
 })
+
+describe('bolt links', () => {
+  it('round-trips the bolt dimensions', () => {
+    const bolt = { size: 12, length: 60, pitch: 1.5, full: true }
+    const q = serialize({ modelId: 'bolt', variant: 0, activePart: 'head', overrides: {}, explode: 0, env: 'studio', bolt })
+    expect(q).toContain('bd=12')
+    expect(parse(q).bolt).toEqual(bolt)
+  })
+
+  it('pulls hand-edited dimensions back into range', () => {
+    const { bolt } = parse('m=bolt&bd=9&bl=9999&bp=99&bf=yes')
+    expect(bolt).toEqual({ size: 8, length: 100, pitch: 2, full: false })
+  })
+
+  it('does not attach bolt state to other models', () => {
+    expect(parse('m=chair&bd=12').bolt).toBeUndefined()
+  })
+})

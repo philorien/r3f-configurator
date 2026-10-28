@@ -2,15 +2,16 @@
 
 > **This is a learning project.** I'm using it to get hands-on with React Three Fiber, so expect rough edges and experiments rather than production-ready code.
 
-A browser-based product configurator built with React Three Fiber. Orbit, click, recolor, and take apart two glTF models in real time.
+A browser-based product configurator built with React Three Fiber. Orbit, click, recolor, and take apart two glTF models, or build a metric bolt from code, in real time.
 
 [Live demo](https://philorien.github.io/r3f-configurator/)
 
-![Switching sneaker variants, then recoloring and exploding the velvet chair](docs/demo.gif)
+![Switching to the bolt, choosing a fine pitch, lengthening it, and cutting it open in cross-section](docs/demo.gif)
 
 ## What it does
 
 - **Configure**: switch between baked material variants, click or pick a part, then change its color, roughness and metalness, hide it, or explode the model apart.
+- **Parametric bolt**: a metric hex cap screw generated in code, with a true helical thread. Pick an ISO size (M3 to M24), length, and pitch in mm (coarse and fine presets), toggle fully threaded, and cut it open with a stencil-capped cross-section. Geometry lives in `src/bolt.ts`.
 - **Upload your own**: drop a `.glb` on the viewer (or use the Upload button). Parts and variants are discovered from the file, and the file never leaves your browser. Limit 50 MB.
 - **Share a configuration**: the address bar always holds a link to the current model, variant, part, colors, finishes, explode distance and lighting. "Copy link" copies it. Links are validated on load, so a hand-edited URL can only produce a valid configuration.
 - **Export**: transparent-background PNG captured from the live canvas.

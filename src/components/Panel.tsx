@@ -1,4 +1,5 @@
 import { useRef } from 'react'
+import { boltSpan, DEFAULT_BOLT, LENGTH_MAX, LENGTH_MIN, PITCH_STEP, pitchRange, SIZES, sizeInfo, threadLength, threadTurns } from '../bolt'
 import { capture } from '../capture'
 import { MODELS, partKey } from '../models'
 import { ENV_PRESETS, selectModel, useConfigurator, type EnvPreset } from '../store'
@@ -97,6 +98,8 @@ export function Panel() {
         {s.uploadError && <p className="error">{s.uploadError}</p>}
       </fieldset>
 
+      {model.procedural === 'bolt' && <BoltControls />}
+
       {model.variants.length > 0 && (
         <fieldset>
           <legend>Variant</legend>
@@ -141,6 +144,9 @@ export function Panel() {
                 </label>
               ))}
             </div>
+          )}
+          {model.procedural === 'bolt' && part.id === 'shank' && threadLength(s.bolt) >= s.bolt.length && (
+            <p className="hint">This bolt is fully threaded, so there is no shank to show.</p>
           )}
           <label className="check">
             <input
@@ -289,20 +295,126 @@ export function Panel() {
   )
 }
 
-function Slider({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {
+function BoltControls() {
+  const bolt = useConfigurator((s) => s.bolt)
+  const setBolt = useConfigurator((s) => s.setBolt)
+  const announce = useConfigurator((s) => s.announce)
+  const section = useConfigurator((s) => s.section)
+  const set = useConfigurator((s) => s.set)
+  const [lo, hi] = pitchRange(bolt.size)
+  const info = sizeInfo(bolt.size)
+  const turns = threadTurns(bolt)
+
+  return (
+    <fieldset>
+      <legend>Bolt</legend>
+      <label className="select">
+        Size
+        <select
+          value={bolt.size}
+          onChange={(e) => {
+            const size = Number(e.target.value)
+            setBolt({ size })
+            announce(`Size M${size}, pitch ${sizeInfo(size).coarse} millimetres`)
+          }}
+        >
+          {SIZES.map((x) => (
+            <option key={x.d} value={x.d}>
+              M{x.d}
+            </option>
+          ))}
+        </select>
+      </label>
+      <Slider
+        label="Length"
+        value={bolt.length}
+        min={LENGTH_MIN}
+        max={LENGTH_MAX}
+        step={1}
+        unit="mm"
+        digits={0}
+        onChange={(v) => setBolt({ length: v })}
+      />
+      <Slider
+        label="Pitch"
+        value={bolt.pitch}
+        min={lo}
+        max={hi}
+        step={PITCH_STEP}
+        unit="mm"
+        onChange={(v) => setBolt({ pitch: v })}
+      />
+      <div className="segmented" role="radiogroup" aria-label="Standard pitch">
+        <label>
+          <input
+            type="radio"
+            name="pitch-series"
+            checked={bolt.pitch === info.coarse}
+            onChange={() => setBolt({ pitch: info.coarse })}
+          />
+          <span>Coarse {info.coarse}</span>
+        </label>
+        <label>
+          <input
+            type="radio"
+            name="pitch-series"
+            checked={bolt.pitch === info.fine}
+            onChange={() => setBolt({ pitch: info.fine })}
+          />
+          <span>Fine {info.fine}</span>
+        </label>
+      </div>
+      <label className="check">
+        <input type="checkbox" checked={bolt.full} onChange={(e) => setBolt({ full: e.target.checked })} />
+        Fully threaded
+      </label>
+      <label className="check">
+        <input type="checkbox" checked={section} onChange={(e) => set({ section: e.target.checked })} />
+        Cross-section
+      </label>
+      <p className="hint">
+        M{bolt.size} x {bolt.pitch} x {bolt.length} mm. {turns.toFixed(1)} turns over {threadLength(bolt)} mm of thread,
+        {' '}{boltSpan(bolt).toFixed(1)} mm overall with the head.
+      </p>
+      {(bolt.size !== DEFAULT_BOLT.size ||
+        bolt.length !== DEFAULT_BOLT.length ||
+        bolt.pitch !== DEFAULT_BOLT.pitch ||
+        bolt.full !== DEFAULT_BOLT.full) && (
+        <button type="button" className="link" onClick={() => setBolt({ ...DEFAULT_BOLT })}>
+          Original size
+        </button>
+      )}
+    </fieldset>
+  )
+}
+
+type SliderProps = {
+  label: string
+  value: number
+  onChange: (v: number) => void
+  min?: number
+  max?: number
+  step?: number
+  /** Without a unit the slider reads as a 0..1 fraction, spoken as a percent. */
+  unit?: string
+  digits?: number
+}
+
+function Slider({ label, value, onChange, min = 0, max = 1, step = 0.01, unit, digits = 2 }: SliderProps) {
+  const shown = value.toFixed(digits)
   return (
     <label className="slider">
       <span>{label}</span>
       <input
         type="range"
-        min={0}
-        max={1}
-        step={0.01}
+        min={min}
+        max={max}
+        step={step}
         value={value}
-        aria-valuetext={`${Math.round(value * 100)} percent`}
+        aria-valuetext={unit ? `${shown} ${unit}` : `${Math.round(value * 100)} percent`}
         onChange={(e) => onChange(Number(e.target.value))}
       />
-      <output>{value.toFixed(2)}</output>
+      <output>{unit ? `${shown} ${unit}` : shown}</output>
     </label>
   )
 }

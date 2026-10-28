@@ -1,3 +1,4 @@
+import { clampBolt, DEFAULT_BOLT, isStandardSize, type BoltParams } from './bolt'
 import { ENV_PRESETS, type EnvPreset } from './env'
 import { getBundledModel, partKey } from './models'
 
@@ -16,6 +17,7 @@ export type ShareState = {
   overrides: Record<string, PartOverride>
   explode: number
   env: EnvPreset
+  bolt?: BoltParams
 }
 
 const HEX = /^[0-9a-f]{6}$/i
@@ -28,6 +30,7 @@ const unit = (raw: string) => {
 /**
  * Encode a configuration as a query string, e.g.
  *   m=chair&v=1&p=wood&x=0.4&env=sunset&o.fabric=c:1d3557,r:0.3&o.wood=h:1
+ * The bolt adds its dimensions: m=bolt&bd=10&bl=60&bp=1.5&bf=1 (size, length, pitch, fully threaded).
  * Only bundled models can be shared. An uploaded file only exists in the sender's browser.
  */
 export function serialize(state: ShareState): string {
@@ -40,6 +43,13 @@ export function serialize(state: ShareState): string {
   if (state.activePart !== model.parts[0].id) q.set('p', state.activePart)
   if (state.explode > 0) q.set('x', round(state.explode))
   if (state.env !== 'studio') q.set('env', state.env)
+
+  if (model.procedural === 'bolt' && state.bolt) {
+    q.set('bd', String(state.bolt.size))
+    q.set('bl', String(state.bolt.length))
+    q.set('bp', round(state.bolt.pitch))
+    if (state.bolt.full) q.set('bf', '1')
+  }
 
   for (const part of model.parts) {
     const o = state.overrides[partKey(model.id, part.id)]
@@ -76,6 +86,18 @@ export function parse(search: string): Partial<ShareState> {
 
   const env = q.get('env')
   if (ENV_PRESETS.includes(env as EnvPreset)) out.env = env as EnvPreset
+
+  if (model.procedural === 'bolt') {
+    // Drop each field that isn't a number we accept, then let clampBolt pull the rest into range.
+    const size = Number(q.get('bd'))
+    const wanted = {
+      size: isStandardSize(size) ? size : undefined,
+      length: q.has('bl') && q.get('bl') !== '' ? Number(q.get('bl')) : undefined,
+      pitch: q.has('bp') && q.get('bp') !== '' ? Number(q.get('bp')) : undefined,
+      full: q.get('bf') === '1',
+    }
+    out.bolt = clampBolt(wanted, DEFAULT_BOLT)
+  }
 
   const overrides: Record<string, PartOverride> = {}
   for (const part of model.parts) {
